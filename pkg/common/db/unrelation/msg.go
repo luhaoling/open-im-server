@@ -1132,18 +1132,18 @@ func (m *MsgMongoDriver) searchMessage(ctx context.Context, req *msg.SearchMessa
 			{"$project", bson.D{
 				{
 					"msgs", bson.D{
-					{
-						"$filter", bson.D{
-						{"input", "$msgs"},
-						{"as", "item"},
 						{
-							"cond", bson.D{
-							{"$and", condition},
-						},
+							"$filter", bson.D{
+								{"input", "$msgs"},
+								{"as", "item"},
+								{
+									"cond", bson.D{
+										{"$and", condition},
+									},
+								},
+							},
 						},
 					},
-					},
-				},
 				},
 				{"doc_id", 1},
 			}},
@@ -1152,7 +1152,7 @@ func (m *MsgMongoDriver) searchMessage(ctx context.Context, req *msg.SearchMessa
 			{"$unwind", bson.M{"path": "$msgs"}},
 		},
 		{
-			{"$sort", bson.M{"msg.send_time": -1}},
+			{"$sort", bson.M{"msgs.msg.send_time": -1}},
 		},
 	}
 	cursor, err := m.MsgCollection.Aggregate(ctx, pipe)
