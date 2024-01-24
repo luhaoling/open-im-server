@@ -29,7 +29,6 @@ import (
 const (
 	// defaultCfgPath is the default path of the configuration file.
 	defaultCfgPath = "../../../../../config/config.yaml"
-	maxRetry       = 300
 )
 
 var (
@@ -63,7 +62,7 @@ func main() {
 		{Name: "Kafka", Function: component.CheckKafka, Config: config.Config.Kafka},
 	}
 
-	for i := 0; i < maxRetry; i++ {
+	for i := 0; i < component.MaxRetry; i++ {
 		if i != 0 {
 			time.Sleep(1 * time.Second)
 		}
