@@ -22,6 +22,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -90,24 +91,41 @@ func run(port int, proPort int) error {
 		address = net.JoinHostPort("0.0.0.0", strconv.Itoa(port))
 	}
 
+	exePath, err := os.Executable()
+	if err != nil {
+		return errs.Wrap(err, "Error getting executable path")
+	}
+	exeName := filepath.Base(exePath) // Extract the executable name from the path
+
+	var (
+		done = make(chan struct{}, 1)
+		gerr error
+	)
 	server := http.Server{Addr: address, Handler: router}
 	go func() {
-		err = server.ListenAndServe()
+		gerr = server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			os.Exit(1)
+			close(done)
 		}
 	}()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	<-sigs
+	select {
+	case <-sigs:
+		// Handling after receiving SIGUSR1
+		fmt.Printf("SIGUSR1 signal received, the program (%s) will now exit...\n", exeName)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 
-	// graceful shutdown operation.
-	if err := server.Shutdown(ctx); err != nil {
-		return err
+		// graceful shutdown operation.
+
+		if err := server.Shutdown(ctx); err != nil {
+			return err
+		}
+	case <-done:
+		return gerr
 	}
 
 	return nil

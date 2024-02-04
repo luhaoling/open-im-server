@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -128,15 +129,22 @@ func Start(
 	})
 
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sigs, syscall.SIGUSR1, syscall.SIGINT)
 	<-sigs
 
 	var (
 		done = make(chan struct{}, 1)
 		gerr error
 	)
+	exePath, err := os.Executable()
+	if err != nil {
+		return errs.Wrap(err, "Error getting executable path")
+	}
 
 	go func() {
+		exeName := filepath.Base(exePath) // Extract the executable name from the path
+		// Handling after receiving SIGUSR1
+		fmt.Printf("SIGUSR1 signal received, the program (%s) will now exit...\n", exeName)
 		once.Do(srv.GracefulStop)
 		gerr = wg.Wait()
 		close(done)
@@ -147,7 +155,7 @@ func Start(
 		return gerr
 
 	case <-time.After(15 * time.Second):
-		return errs.Wrap(errors.New("timeout exit"))
+		return errs.Wrap(errors.New("received exit, wait 15s , timeout"))
 	}
 
 }
