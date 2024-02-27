@@ -33,24 +33,25 @@ import (
 	"github.com/openimsdk/open-im-server/v3/pkg/common/startrpc"
 )
 
-func (s *Server) InitServer(disCov discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) error {
-	rdb, err := cache.NewRedis()
+func (s *Server) InitServer(config *config.GlobalConfig, disCov discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) error {
+	rdb, err := cache.NewRedis(config)
 	if err != nil {
 		return err
 	}
 
-	msgModel := cache.NewMsgCacheModel(rdb)
-	s.LongConnServer.SetDiscoveryRegistry(disCov)
+	msgModel := cache.NewMsgCacheModel(rdb, config)
+	s.LongConnServer.SetDiscoveryRegistry(disCov, config)
 	s.LongConnServer.SetCacheHandler(msgModel)
 	msggateway.RegisterMsgGatewayServer(server, s)
 	return nil
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(conf *config.GlobalConfig) error {
 	return startrpc.Start(
 		s.rpcPort,
-		config.Config.RpcRegisterName.OpenImMessageGatewayName,
+		conf.RpcRegisterName.OpenImMessageGatewayName,
 		s.prometheusPort,
+		conf,
 		s.InitServer,
 	)
 }
@@ -60,18 +61,20 @@ type Server struct {
 	prometheusPort int
 	LongConnServer LongConnServer
 	pushTerminal   []int
+	config         *config.GlobalConfig
 }
 
 func (s *Server) SetLongConnServer(LongConnServer LongConnServer) {
 	s.LongConnServer = LongConnServer
 }
 
-func NewServer(rpcPort int, proPort int, longConnServer LongConnServer) *Server {
+func NewServer(rpcPort int, proPort int, longConnServer LongConnServer, config *config.GlobalConfig) *Server {
 	return &Server{
 		rpcPort:        rpcPort,
 		prometheusPort: proPort,
 		LongConnServer: longConnServer,
 		pushTerminal:   []int{constant.IOSPlatformID, constant.AndroidPlatformID},
+		config:         config,
 	}
 }
 
@@ -86,7 +89,7 @@ func (s *Server) GetUsersOnlineStatus(
 	ctx context.Context,
 	req *msggateway.GetUsersOnlineStatusReq,
 ) (*msggateway.GetUsersOnlineStatusResp, error) {
-	if !authverify.IsAppManagerUid(ctx) {
+	if !authverify.IsAppManagerUid(ctx, s.config) {
 		return nil, errs.ErrNoPermission.Wrap("only app manager")
 	}
 	var resp msggateway.GetUsersOnlineStatusResp

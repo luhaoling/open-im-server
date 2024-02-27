@@ -52,13 +52,13 @@ type MsgTransfer struct {
 	cancel         context.CancelFunc
 }
 
-func StartTransfer(prometheusPort int) error {
-	rdb, err := cache.NewRedis()
+func StartTransfer(config *config.GlobalConfig, prometheusPort int) error {
+	rdb, err := cache.NewRedis(config)
 	if err != nil {
 		return err
 	}
 
-	mongo, err := unrelation.NewMongo()
+	mongo, err := unrelation.NewMongo(config)
 	if err != nil {
 		return err
 	}
@@ -66,36 +66,36 @@ func StartTransfer(prometheusPort int) error {
 	if err = mongo.CreateMsgIndex(); err != nil {
 		return err
 	}
-	client, err := kdisc.NewDiscoveryRegister(config.Config.Envs.Discovery)
+	client, err := kdisc.NewDiscoveryRegister(config)
 	if err != nil {
 		return err
 	}
 
-	if err2 := client.CreateRpcRootNodes(config.Config.GetServiceNames()); err2 != nil {
+	if err := client.CreateRpcRootNodes(config.GetServiceNames()); err != nil {
 		return err
 	}
 	client.AddOption(mw.GrpcClient(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"LoadBalancingPolicy": "%s"}`, "round_robin")))
-	msgModel := cache.NewMsgCacheModel(rdb)
-	msgDocModel := unrelation.NewMsgMongoDriver(mongo.GetDatabase())
-	msgDatabase, err := controller.NewCommonMsgDatabase(msgDocModel, msgModel)
+	msgModel := cache.NewMsgCacheModel(rdb, config)
+	msgDocModel := unrelation.NewMsgMongoDriver(mongo.GetDatabase(config.Mongo.Database))
+	msgDatabase, err := controller.NewCommonMsgDatabase(msgDocModel, msgModel, config)
 	if err != nil {
 		return err
 	}
-	conversationRpcClient := rpcclient.NewConversationRpcClient(client)
-	groupRpcClient := rpcclient.NewGroupRpcClient(client)
-	msgTransfer, err := NewMsgTransfer(msgDatabase, &conversationRpcClient, &groupRpcClient)
+	conversationRpcClient := rpcclient.NewConversationRpcClient(client, config)
+	groupRpcClient := rpcclient.NewGroupRpcClient(client, config)
+	msgTransfer, err := NewMsgTransfer(config, msgDatabase, &conversationRpcClient, &groupRpcClient)
 	if err != nil {
 		return err
 	}
-	return msgTransfer.Start(prometheusPort)
+	return msgTransfer.Start(prometheusPort, config)
 }
 
-func NewMsgTransfer(msgDatabase controller.CommonMsgDatabase, conversationRpcClient *rpcclient.ConversationRpcClient, groupRpcClient *rpcclient.GroupRpcClient) (*MsgTransfer, error) {
-	historyCH, err := NewOnlineHistoryRedisConsumerHandler(msgDatabase, conversationRpcClient, groupRpcClient)
+func NewMsgTransfer(config *config.GlobalConfig, msgDatabase controller.CommonMsgDatabase, conversationRpcClient *rpcclient.ConversationRpcClient, groupRpcClient *rpcclient.GroupRpcClient) (*MsgTransfer, error) {
+	historyCH, err := NewOnlineHistoryRedisConsumerHandler(config, msgDatabase, conversationRpcClient, groupRpcClient)
 	if err != nil {
 		return nil, err
 	}
-	historyMongoCH, err := NewOnlineHistoryMongoConsumerHandler(msgDatabase)
+	historyMongoCH, err := NewOnlineHistoryMongoConsumerHandler(config, msgDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func NewMsgTransfer(msgDatabase controller.CommonMsgDatabase, conversationRpcCli
 	}, nil
 }
 
-func (m *MsgTransfer) Start(prometheusPort int) error {
+func (m *MsgTransfer) Start(prometheusPort int, config *config.GlobalConfig) error {
 	fmt.Println("start msg transfer", "prometheusPort:", prometheusPort)
 	if prometheusPort <= 0 {
 		return errs.Wrap(errors.New("prometheusPort not correct"))
@@ -124,7 +124,7 @@ func (m *MsgTransfer) Start(prometheusPort int) error {
 	go m.historyCH.historyConsumerGroup.RegisterHandleAndConsumer(m.ctx, m.historyCH, onError)
 	go m.historyMongoCH.historyConsumerGroup.RegisterHandleAndConsumer(m.ctx, m.historyMongoCH, onError)
 
-	if config.Config.Prometheus.Enable {
+	if config.Prometheus.Enable {
 		go func() {
 			proreg := prometheus.NewRegistry()
 			proreg.MustRegister(

@@ -28,8 +28,6 @@ import (
 	"github.com/OpenIMSDK/tools/log"
 	"github.com/OpenIMSDK/tools/mcontext"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/openimsdk/open-im-server/v3/pkg/common/config"
 )
 
 const maxRetry = 10 // number of retries
@@ -44,8 +42,15 @@ type Producer struct {
 	producer sarama.SyncProducer
 }
 
+type ProducerConfig struct {
+	ProducerAck  string
+	CompressType string
+	Username     string
+	Password     string
+}
+
 // NewKafkaProducer initializes a new Kafka producer.
-func NewKafkaProducer(addr []string, topic string) (*Producer, error) {
+func NewKafkaProducer(addr []string, topic string, producerConfig *ProducerConfig, tlsConfig *TLSConfig) (*Producer, error) {
 	p := Producer{
 		addr:   addr,
 		topic:  topic,
@@ -60,14 +65,14 @@ func NewKafkaProducer(addr []string, topic string) (*Producer, error) {
 	p.config.Producer.Partitioner = sarama.NewHashPartitioner
 
 	// Configure producer acknowledgement level
-	configureProducerAck(&p, config.Config.Kafka.ProducerAck)
+	configureProducerAck(&p, producerConfig.ProducerAck)
 
 	// Configure message compression
-	configureCompression(&p, config.Config.Kafka.CompressType)
+	configureCompression(&p, producerConfig.CompressType)
 
 	// Get Kafka configuration from environment variables or fallback to config file
-	kafkaUsername := getEnvOrConfig("KAFKA_USERNAME", config.Config.Kafka.Username)
-	kafkaPassword := getEnvOrConfig("KAFKA_PASSWORD", config.Config.Kafka.Password)
+	kafkaUsername := getEnvOrConfig("KAFKA_USERNAME", producerConfig.Username)
+	kafkaPassword := getEnvOrConfig("KAFKA_PASSWORD", producerConfig.Password)
 	kafkaAddr := getKafkaAddrFromEnv(addr) // Updated to use the new function
 
 	// Configure SASL authentication if credentials are provided
@@ -81,7 +86,7 @@ func NewKafkaProducer(addr []string, topic string) (*Producer, error) {
 	p.addr = kafkaAddr
 
 	// Set up TLS configuration (if required)
-	SetupTLSConfig(p.config)
+	SetupTLSConfig(p.config, tlsConfig)
 
 	// Create the producer with retries
 	var err error

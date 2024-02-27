@@ -16,6 +16,7 @@ package msg
 
 import (
 	"context"
+	"github.com/openimsdk/open-im-server/v3/pkg/common/config"
 
 	"google.golang.org/grpc"
 
@@ -44,6 +45,7 @@ type (
 		ConversationLocalCache *localcache.ConversationLocalCache
 		Handlers               MessageInterceptorChain
 		notificationSender     *rpcclient.NotificationSender
+		config                 *config.GlobalConfig
 	}
 )
 
@@ -51,9 +53,9 @@ func (m *msgServer) addInterceptorHandler(interceptorFunc ...MessageInterceptorF
 	m.Handlers = append(m.Handlers, interceptorFunc...)
 }
 
-func (m *msgServer) execInterceptorHandler(ctx context.Context, req *msg.SendMsgReq) error {
+func (m *msgServer) execInterceptorHandler(ctx context.Context, config *config.GlobalConfig, req *msg.SendMsgReq) error {
 	for _, handler := range m.Handlers {
-		msgData, err := handler(ctx, req)
+		msgData, err := handler(ctx, config, req)
 		if err != nil {
 			return err
 		}
@@ -62,25 +64,25 @@ func (m *msgServer) execInterceptorHandler(ctx context.Context, req *msg.SendMsg
 	return nil
 }
 
-func Start(client discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) error {
-	rdb, err := cache.NewRedis()
+func Start(config *config.GlobalConfig, client discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) error {
+	rdb, err := cache.NewRedis(config)
 	if err != nil {
 		return err
 	}
-	mongo, err := unrelation.NewMongo()
+	mongo, err := unrelation.NewMongo(config)
 	if err != nil {
 		return err
 	}
 	if err := mongo.CreateMsgIndex(); err != nil {
 		return err
 	}
-	cacheModel := cache.NewMsgCacheModel(rdb)
-	msgDocModel := unrelation.NewMsgMongoDriver(mongo.GetDatabase())
-	conversationClient := rpcclient.NewConversationRpcClient(client)
-	userRpcClient := rpcclient.NewUserRpcClient(client)
-	groupRpcClient := rpcclient.NewGroupRpcClient(client)
-	friendRpcClient := rpcclient.NewFriendRpcClient(client)
-	msgDatabase, err := controller.NewCommonMsgDatabase(msgDocModel, cacheModel)
+	cacheModel := cache.NewMsgCacheModel(rdb, config)
+	msgDocModel := unrelation.NewMsgMongoDriver(mongo.GetDatabase(config.Mongo.Database))
+	conversationClient := rpcclient.NewConversationRpcClient(client, config)
+	userRpcClient := rpcclient.NewUserRpcClient(client, config)
+	groupRpcClient := rpcclient.NewGroupRpcClient(client, config)
+	friendRpcClient := rpcclient.NewFriendRpcClient(client, config)
+	msgDatabase, err := controller.NewCommonMsgDatabase(msgDocModel, cacheModel, config)
 	if err != nil {
 		return err
 	}
@@ -93,8 +95,9 @@ func Start(client discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) e
 		GroupLocalCache:        localcache.NewGroupLocalCache(&groupRpcClient),
 		ConversationLocalCache: localcache.NewConversationLocalCache(&conversationClient),
 		friend:                 &friendRpcClient,
+		config:                 config,
 	}
-	s.notificationSender = rpcclient.NewNotificationSender(rpcclient.WithLocalSendMsg(s.SendMsg))
+	s.notificationSender = rpcclient.NewNotificationSender(config, rpcclient.WithLocalSendMsg(s.SendMsg))
 	s.addInterceptorHandler(MessageHasReadEnabled)
 	msg.RegisterMsgServer(server, s)
 	return nil

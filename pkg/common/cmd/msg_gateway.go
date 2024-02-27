@@ -22,7 +22,6 @@ import (
 	"github.com/OpenIMSDK/protocol/constant"
 
 	"github.com/openimsdk/open-im-server/v3/internal/msggateway"
-	v3config "github.com/openimsdk/open-im-server/v3/pkg/common/config"
 )
 
 type MsgGatewayCmd struct {
@@ -31,6 +30,7 @@ type MsgGatewayCmd struct {
 
 func NewMsgGatewayCmd() *MsgGatewayCmd {
 	ret := &MsgGatewayCmd{NewRootCmd("msgGateway")}
+	ret.addRunE()
 	ret.SetRootCmdPt(ret)
 	return ret
 }
@@ -52,25 +52,24 @@ func (m *MsgGatewayCmd) getWsPortFlag(cmd *cobra.Command) int {
 
 func (m *MsgGatewayCmd) addRunE() {
 	m.Command.RunE = func(cmd *cobra.Command, args []string) error {
-		return msggateway.RunWsAndServer(m.getPortFlag(cmd), m.getWsPortFlag(cmd), m.getPrometheusPortFlag(cmd))
+		return msggateway.RunWsAndServer(m.config, m.getPortFlag(cmd), m.getWsPortFlag(cmd), m.getPrometheusPortFlag(cmd))
 	}
 }
 
 func (m *MsgGatewayCmd) Exec() error {
-	m.addRunE()
 	return m.Execute()
 }
 
 func (m *MsgGatewayCmd) GetPortFromConfig(portType string) int {
 	switch portType {
 	case constant.FlagWsPort:
-		return v3config.Config.LongConnSvr.OpenImWsPort[0]
+		return m.config.LongConnSvr.OpenImWsPort[0]
 
 	case constant.FlagPort:
-		return v3config.Config.LongConnSvr.OpenImMessageGatewayPort[0]
+		return m.config.LongConnSvr.OpenImMessageGatewayPort[0]
 
 	case constant.FlagPrometheusPort:
-		return v3config.Config.Prometheus.MessageGatewayPrometheusPort[0]
+		return m.config.Prometheus.MessageGatewayPrometheusPort[0]
 
 	default:
 		return 0

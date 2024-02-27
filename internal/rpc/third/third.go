@@ -39,44 +39,44 @@ import (
 	"github.com/openimsdk/open-im-server/v3/pkg/rpcclient"
 )
 
-func Start(client discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) error {
-	mongo, err := unrelation.NewMongo()
+func Start(config *config.GlobalConfig, client discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) error {
+	mongo, err := unrelation.NewMongo(config)
 	if err != nil {
 		return err
 	}
-	logdb, err := mgo.NewLogMongo(mongo.GetDatabase())
+	logdb, err := mgo.NewLogMongo(mongo.GetDatabase(config.Mongo.Database))
 	if err != nil {
 		return err
 	}
-	s3db, err := mgo.NewS3Mongo(mongo.GetDatabase())
+	s3db, err := mgo.NewS3Mongo(mongo.GetDatabase(config.Mongo.Database))
 	if err != nil {
 		return err
 	}
-	apiURL := config.Config.Object.ApiURL
+	apiURL := config.Object.ApiURL
 	if apiURL == "" {
 		return fmt.Errorf("api url is empty")
 	}
-	if _, err := url.Parse(config.Config.Object.ApiURL); err != nil {
+	if _, err := url.Parse(config.Object.ApiURL); err != nil {
 		return err
 	}
 	if apiURL[len(apiURL)-1] != '/' {
 		apiURL += "/"
 	}
 	apiURL += "object/"
-	rdb, err := cache.NewRedis()
+	rdb, err := cache.NewRedis(config)
 	if err != nil {
 		return err
 	}
 	// 根据配置文件策略选择 oss 方式
-	enable := config.Config.Object.Enable
+	enable := config.Object.Enable
 	var o s3.Interface
-	switch config.Config.Object.Enable {
+	switch config.Object.Enable {
 	case "minio":
-		o, err = minio.NewMinio(cache.NewMinioCache(rdb))
+		o, err = minio.NewMinio(cache.NewMinioCache(rdb), config)
 	case "cos":
-		o, err = cos.NewCos()
+		o, err = cos.NewCos(config)
 	case "oss":
-		o, err = oss.NewOSS()
+		o, err = oss.NewOSS(config)
 	default:
 		err = fmt.Errorf("invalid object enable: %s", enable)
 	}
@@ -85,10 +85,11 @@ func Start(client discoveryregistry.SvcDiscoveryRegistry, server *grpc.Server) e
 	}
 	third.RegisterThirdServer(server, &thirdServer{
 		apiURL:        apiURL,
-		thirdDatabase: controller.NewThirdDatabase(cache.NewMsgCacheModel(rdb), logdb),
-		userRpcClient: rpcclient.NewUserRpcClient(client),
+		thirdDatabase: controller.NewThirdDatabase(cache.NewMsgCacheModel(rdb, config), logdb),
+		userRpcClient: rpcclient.NewUserRpcClient(client, config),
 		s3dataBase:    controller.NewS3Database(rdb, o, s3db),
 		defaultExpire: time.Hour * 24 * 7,
+		config:        config,
 	})
 	return nil
 }
@@ -99,6 +100,7 @@ type thirdServer struct {
 	s3dataBase    controller.S3Database
 	userRpcClient rpcclient.UserRpcClient
 	defaultExpire time.Duration
+	config        *config.GlobalConfig
 }
 
 func (t *thirdServer) FcmUpdateToken(ctx context.Context, req *third.FcmUpdateTokenReq) (resp *third.FcmUpdateTokenResp, err error) {
