@@ -101,12 +101,11 @@ func main() {
 		for index, check := range checks {
 			if !check.flag {
 				err = check.function(check.config)
-				if err != nil && strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
-					continue
-				}
-
 				if err != nil {
 					component.ErrorPrint(fmt.Sprintf("Starting %s failed:%v.", check.name, err))
+					if strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
+						continue
+					}
 					break
 				} else {
 					checks[index].flag = true
@@ -120,6 +119,7 @@ func main() {
 			return
 		}
 	}
+	os.Exit(-1)
 }
 
 // checkMongo checks the MongoDB connection without retries
