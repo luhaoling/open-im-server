@@ -165,7 +165,6 @@ func checkMinio(config *config.GlobalConfig) error {
 
 // checkZookeeper checks the Zookeeper connection
 func checkZookeeper(config *config.GlobalConfig) error {
-
 	zkStu := &component.Zookeeper{
 		Schema:   config.Zookeeper.Schema,
 		ZkAddr:   config.Zookeeper.ZkAddr,
