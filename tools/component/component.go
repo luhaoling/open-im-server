@@ -101,10 +101,13 @@ func main() {
 		for index, check := range checks {
 			if !check.flag {
 				err = check.function(check.config)
+				if err != nil && strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
+					continue
+				}
+
 				if err != nil {
 					component.ErrorPrint(fmt.Sprintf("Starting %s failed:%v.", check.name, err))
-					allSuccess = false
-
+					break
 				} else {
 					checks[index].flag = true
 					component.SuccessPrint(fmt.Sprintf("%s connected successfully", check.name))
