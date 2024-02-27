@@ -104,8 +104,10 @@ func main() {
 				if err != nil {
 					component.ErrorPrint(fmt.Sprintf("Starting %s failed:%v.", check.name, err))
 					if strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
+						fmt.Println("1111111111111111111111")
 						continue
 					}
+					fmt.Println("22222222222222222222222")
 					break
 				} else {
 					checks[index].flag = true
