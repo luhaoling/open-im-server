@@ -128,7 +128,8 @@ function openim::tools::pre-start() {
     for tool in "${OPENIM_TOOLS_PRE_START_NAME_LISTARIES[@]}"; do
         openim::log::info "Starting ${tool}..."
         openim::tools::start_service ${tool} ${OPNEIM_CONFIG}
-        if [ $? -ne 0 ]; then
+        status=$?
+        if [ $status -ne 0 ]; then
           return $status  # Returns an error status code to the caller
         fi
     done
