@@ -105,6 +105,12 @@ function openim::tools::start_service() {
   fi
   openim::log::status "Starting ${binary_name}..."
   ${cmd} | tee -a "${LOG_FILE}"
+
+  local service_exit_status=${PIPESTATUS[0]}  # Getting the exit status of a service command
+
+  if [ $service_exit_status -ne 0 ]; then
+    return $service_exit_status
+  fi
 }
 
 function openim::tools::start() {
