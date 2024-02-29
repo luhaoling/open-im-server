@@ -38,7 +38,7 @@ import (
 const (
 	// defaultCfgPath is the default path of the configuration file.
 	defaultCfgPath = "../../../../../config/config.yaml"
-	maxRetry       = 300
+	maxRetry       = 100
 )
 
 var (
@@ -102,14 +102,11 @@ func main() {
 			if !check.flag {
 				err = check.function(check.config)
 				if err != nil {
-					fmt.Println("00000000000000000")
+					allSuccess = false
 					component.ErrorPrint(fmt.Sprintf("Starting %s failed:%v.", check.name, errs.Unwrap(err).Error()))
 					if !strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
-						fmt.Println("1111111111111111111111")
-						allSuccess = false
 						break
 					}
-					fmt.Println("22222222222222222222222")
 				} else {
 					checks[index].flag = true
 					component.SuccessPrint(fmt.Sprintf("%s connected successfully", check.name))
@@ -121,7 +118,7 @@ func main() {
 			component.SuccessPrint("All components started successfully!")
 			return
 		} else {
-			component.ErrorPrint("Components check failed!")
+			component.ErrorPrint("Some components started failed!")
 			os.Exit(-1)
 		}
 	}
