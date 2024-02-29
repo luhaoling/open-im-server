@@ -104,7 +104,8 @@ func main() {
 				if err != nil {
 					allSuccess = false
 					component.ErrorPrint(fmt.Sprintf("Starting %s failed:%v.", check.name, errs.Unwrap(err).Error()))
-					if !strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
+					if !strings.Contains(errs.Unwrap(err).Error(), "connection refused") &&
+						!strings.Contains(errs.Unwrap(err).Error(), "timeout waiting") {
 						component.ErrorPrint("Some components started failed!")
 						os.Exit(-1)
 					}
