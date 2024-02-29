@@ -102,14 +102,14 @@ func main() {
 			if !check.flag {
 				err = check.function(check.config)
 				if err != nil {
+					fmt.Println("00000000000000000")
 					component.ErrorPrint(fmt.Sprintf("Starting %s failed:%v.", check.name, err))
-					if strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
+					if !strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
 						fmt.Println("1111111111111111111111")
-						continue
+						allSuccess = false
+						break
 					}
-					allSuccess=false
 					fmt.Println("22222222222222222222222")
-					break
 				} else {
 					checks[index].flag = true
 					component.SuccessPrint(fmt.Sprintf("%s connected successfully", check.name))
