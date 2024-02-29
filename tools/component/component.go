@@ -105,7 +105,8 @@ func main() {
 					allSuccess = false
 					component.ErrorPrint(fmt.Sprintf("Starting %s failed:%v.", check.name, errs.Unwrap(err).Error()))
 					if !strings.Contains(errs.Unwrap(err).Error(), "connection refused") {
-						break
+						component.ErrorPrint("Some components started failed!")
+						os.Exit(-1)
 					}
 				} else {
 					checks[index].flag = true
@@ -117,11 +118,10 @@ func main() {
 		if allSuccess {
 			component.SuccessPrint("All components started successfully!")
 			return
-		} else {
-			component.ErrorPrint("Some components started failed!")
-			os.Exit(-1)
 		}
 	}
+	component.ErrorPrint("Some components started failed!")
+	os.Exit(-1)
 }
 
 // checkMongo checks the MongoDB connection without retries
