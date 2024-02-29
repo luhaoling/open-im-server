@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/OpenIMSDK/tools/errs"
-	"github.com/OpenIMSDK/tools/log"
 
 	util "github.com/openimsdk/open-im-server/v3/pkg/util/genutil"
 
@@ -118,11 +117,8 @@ func (m *MsgTransfer) Start(prometheusPort int, config *config.GlobalConfig) err
 		netErr  error
 	)
 
-	onError := func(ctx context.Context, err error, errInfo string) {
-		log.ZWarn(ctx, errInfo, err)
-	}
-	go m.historyCH.historyConsumerGroup.RegisterHandleAndConsumer(m.ctx, m.historyCH, onError)
-	go m.historyMongoCH.historyConsumerGroup.RegisterHandleAndConsumer(m.ctx, m.historyMongoCH, onError)
+	go m.historyCH.historyConsumerGroup.RegisterHandleAndConsumer(m.ctx, m.historyCH)
+	go m.historyMongoCH.historyConsumerGroup.RegisterHandleAndConsumer(m.ctx, m.historyMongoCH)
 
 	if config.Prometheus.Enable {
 		go func() {
@@ -144,12 +140,12 @@ func (m *MsgTransfer) Start(prometheusPort int, config *config.GlobalConfig) err
 	signal.Notify(sigs, syscall.SIGTERM)
 	select {
 	case <-sigs:
-		util.SIGUSR1Exit()
+		util.SIGTERMExit()
 		// graceful close kafka client.
 		m.cancel()
 		m.historyCH.historyConsumerGroup.Close()
 		m.historyMongoCH.historyConsumerGroup.Close()
-
+		return nil
 	case <-netDone:
 		m.cancel()
 		m.historyCH.historyConsumerGroup.Close()
@@ -157,6 +153,4 @@ func (m *MsgTransfer) Start(prometheusPort int, config *config.GlobalConfig) err
 		close(netDone)
 		return netErr
 	}
-
-	return nil
 }
