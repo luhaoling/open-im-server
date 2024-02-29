@@ -109,6 +109,7 @@ function openim::tools::start_service() {
   local service_exit_status=${PIPESTATUS[0]}  # Getting the exit status of a service command
 
   if [ $service_exit_status -ne 0 ]; then
+    openim::log::error "${binary_name} start failed, exited with status $service_exit_status."
     return $service_exit_status
   fi
 }
@@ -127,10 +128,10 @@ function openim::tools::pre-start() {
     openim::log::info "Preparing to start OpenIM Tools..."
     for tool in "${OPENIM_TOOLS_PRE_START_NAME_LISTARIES[@]}"; do
         openim::log::info "Starting ${tool}..."
-        openim::tools::start_service ${tool} ${OPNEIM_CONFIG}
-        local status=$?
-        if [ $status -ne 0 ]; then
-            return $status  # 返回错误状态码给调用者
+        result=$(openim::tools::start_service ${tool} ${OPNEIM_CONFIG})
+        if [ $? -ne 0 ]; then
+            echo "$result"
+            return $status  # Returns an error status code to the caller
         fi
     done
     return 0

@@ -76,8 +76,9 @@ echo "You need to start the following scripts in order: ${OPENIM_SERVER_SCRIPTAR
 TOOLS_START_SCRIPTS_PATH=${START_SCRIPTS_PATH}/openim-tools.sh
 
 openim::log::status "\n## Pre Starting OpenIM services"
-${TOOLS_START_SCRIPTS_PATH} openim::tools::pre-start
+result=$(${TOOLS_START_SCRIPTS_PATH} openim::tools::pre-start)
 if [[ $? -ne 0 ]]; then
+  openim::log::error "$result"
   exit 1
 fi
 

@@ -121,7 +121,6 @@ func main() {
 			component.SuccessPrint("All components started successfully!")
 			return
 		} else {
-			component.ErrorPrint("Components check failed!")
 			os.Exit(-1)
 		}
 	}
