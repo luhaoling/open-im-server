@@ -107,6 +107,7 @@ func main() {
 						fmt.Println("1111111111111111111111")
 						continue
 					}
+					allSuccess=false
 					fmt.Println("22222222222222222222222")
 					break
 				} else {
