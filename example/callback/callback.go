@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/OpenIMSDK/chat/pkg/common/apistruct"
 	"github.com/OpenIMSDK/chat/pkg/common/config"
 	"github.com/OpenIMSDK/chat/pkg/proto/admin"
@@ -23,6 +24,33 @@ import (
 	"strings"
 	"time"
 )
+
+/*
+curl -XPOST -H "Content-Type: application/json" -d
+'{"query": "实时音视频通讯能力的介绍"}' "http://43.134.63.160/smart_qa"
+
+@2882899447  ，智能客服的接口，接口文档后面统一梳理。
+1）POST方法，请求body是json
+2）返回body格式：
+{ "data":{
+"answer": "OpenIM平台提供可靠的信令能力，支持大规模视频会议，服务器端音视频录制，以及各种社交场景，包括一对一和群组聊天，具有管理员、群组所有者和成员的功能。",
+"source": [ "https://www.openim.io/zh" ] },
+"messge": "success",
+"retcode": 0
+}
+
+*/
+
+type SmartQaReq struct {
+	Query string `json:"query"`
+}
+
+type SmartQaResp struct {
+	Answer  string `json:"answer"`
+	Source  string `json:"source"`
+	Message string `json:"message"`
+	Retcode int    `json:"retcode"`
+}
 
 func CallbackExample(c *gin.Context) {
 	// 1. Handling callbacks after sending a single chat message
@@ -65,7 +93,25 @@ func CallbackExample(c *gin.Context) {
 		return
 	}
 
-	// 2.6 Send Message
+	// 2.6 call "http://43.134.63.160/smart_qa"
+	query, ok := mapStruct["content"].(string)
+	if !ok {
+		log.ZError(c, "str, ok := any.(string)", errors.New("the query formate is error"))
+	}
+
+	martQaReq := &SmartQaReq{
+		Query: query,
+	}
+	martQaResp, err := callSmartQa(c, martQaReq)
+	if err != nil {
+		log.ZError(c, "callSmartQa failed", err)
+	}
+
+	mapStruct["data"] = martQaResp.Answer
+	mapStruct["description"] = martQaResp.Source
+	mapStruct["extension"] = ""
+
+	// 2.7 Send Message
 	err = sendMessage(c, adminToken.ImToken, msgInfo, robUser, mapStruct)
 	if err != nil {
 		log.ZError(c, "getRobotAccountInfo failed", err)
@@ -298,7 +344,7 @@ func sendMessage(c *gin.Context, token string, req *apistruct.CallbackAfterSendS
 			SenderFaceURL:    rob.FaceURL,
 			SenderPlatformID: req.SenderPlatformID,
 			Content:          mapStruct,
-			ContentType:      req.ContentType,
+			ContentType:      110,
 			SessionType:      req.SessionType,
 			SendTime:         utils.GetCurrentTimestampByMill(), // millisecond
 		},
@@ -312,4 +358,27 @@ func sendMessage(c *gin.Context, token string, req *apistruct.CallbackAfterSendS
 		return err
 	}
 	return nil
+}
+
+func callSmartQa(c *gin.Context, smartQaRea *SmartQaReq) (*SmartQaResp, error) {
+	header := map[string]string{}
+
+	url := "http://43.134.63.160/smart_qa"
+	body, err := Post(c, url, header, smartQaRea, 10)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp SmartQaResp
+
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		return nil, fmt.Errorf("json.Unmarshal failed,err:%v", err)
+	}
+
+	if resp.Retcode != 0 {
+		return nil, fmt.Errorf("call \"http://43.134.63.160/smart_qa\" error, resp.Retcode:%d", resp.Retcode)
+	}
+
+	return &resp, nil
 }
